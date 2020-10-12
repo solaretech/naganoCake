@@ -1,0 +1,40 @@
+name: Ruby
+
+on:
+  pull_request:
+    branches: [ master ]
+jobs:
+  review_bookers_dev:
+    runs-on: ubuntu-latest
+    if: github.head_ref == 'bookers_dev'
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Ruby 2.5.7
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: 2.5.7
+    - name: Build and test with RSpec
+      run: |
+        gem install bundler
+        sudo apt-get update
+        sudo apt-get install libsqlite3-dev
+        bundle install --jobs 4 --retry 3
+        rails db:migrate RAILS_ENV=test
+        bundle exec rspec spec/ --format documentation
+    - name: autoapprove
+      if: success()
+      uses: hmarr/auto-approve-action@v2.0.0
+      with:
+        github-token: "${{ secrets.GITHUB_TOKEN }}"
+    - name: Add label
+      uses: actions/github-script@0.9.0
+      if: success()
+      with:
+        github-token: ${{secrets.GITHUB_TOKEN}}
+        script: |
+          github.issues.addLabels({
+            issue_number: context.payload.pull_request.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            labels: ['mentor-review']
+          })
